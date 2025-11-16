@@ -1,10 +1,11 @@
 use crate::seed::run_all;
 use anyhow::{Context, Result};
 use migration::{Migrator, MigratorTrait};
-use sea_orm::Database;
+use sea_orm::{ConnectOptions, Database};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use std::time::Duration;
 use std::{env, fs};
 
 #[derive(Clone)]
@@ -52,8 +53,9 @@ impl Config {
 
     pub async fn setup_database() -> Result<sea_orm::DatabaseConnection> {
         let db_url = Self::database_url();
+        let connect_options = Self::build_connect_options(&db_url);
 
-        let db = Database::connect(&db_url)
+        let db = Database::connect(connect_options)
             .await
             .context("Failed to connect to database")?;
 
@@ -64,6 +66,20 @@ impl Config {
         run_all(&db).await?;
 
         Ok(db)
+    }
+
+    fn build_connect_options(database_url: &str) -> ConnectOptions {
+        let mut options = ConnectOptions::new(database_url.to_owned());
+
+        options
+            .max_connections(20)
+            .min_connections(5)
+            .connect_timeout(Duration::from_secs(8))
+            .acquire_timeout(Duration::from_secs(15))
+            .idle_timeout(Duration::from_secs(300))
+            .sqlx_logging(false);
+
+        options
     }
 
     pub fn load() -> Self {

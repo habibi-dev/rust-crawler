@@ -53,7 +53,7 @@ async fn process_post(post: Model, site: site::Model) {
     let path_content = site.path_content.as_deref().unwrap_or("");
 
     let (title, image, video, content) = {
-        let browser = match Browser::new(url, None, None) {
+        let browser = match Browser::new(url, None, None).await {
             Ok(b) => b,
             Err(e) => {
                 // use error before any await so it does not cross .await
@@ -67,29 +67,41 @@ async fn process_post(post: Model, site: site::Model) {
         };
 
         if let Some(remove_str) = &site.path_remove {
-            let selectors: Vec<&str> = remove_str
+            let selectors: Vec<String> = remove_str
                 .split(',')
-                .map(|s| s.trim())
+                .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
 
             if !selectors.is_empty()
-                && let Err(e) = browser.remove_elements(selectors)
+                && let Err(e) = browser.remove_elements(selectors).await
             {
                 eprintln!("Failed to remove elements for site {}: {}", site.id, e);
             }
         }
 
-        let title = browser.get_element_text(path_title).unwrap_or_default();
+        let title = browser
+            .get_element_text(path_title)
+            .await
+            .unwrap_or_default();
         let image = normalize_link(
             &site.url,
-            &browser.get_attr(path_image, "src").unwrap_or_default(),
+            &browser
+                .get_attr(path_image, "src")
+                .await
+                .unwrap_or_default(),
         );
         let video = normalize_link(
             &site.url,
-            &browser.get_attr(path_video, "src").unwrap_or_default(),
+            &browser
+                .get_attr(path_video, "src")
+                .await
+                .unwrap_or_default(),
         );
-        let content = browser.get_element_html(path_content).unwrap_or_default();
+        let content = browser
+            .get_element_html(path_content)
+            .await
+            .unwrap_or_default();
 
         (title, image, video, content)
     };

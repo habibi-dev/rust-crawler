@@ -44,7 +44,7 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
         _ => return Ok(()),
     };
 
-    let browser = match Browser::new(&site.url_list, None, None) {
+    let browser = match Browser::new(&site.url_list, None, None).await {
         Ok(b) => b,
         Err(e) => {
             eprintln!("Browser failed to start: {}", e);
@@ -53,14 +53,14 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
     };
 
     if let Some(remove_str) = &site.path_remove {
-        let selectors: Vec<&str> = remove_str
+        let selectors: Vec<String> = remove_str
             .split(',')
-            .map(|s| s.trim())
+            .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect();
 
         if !selectors.is_empty()
-            && let Err(e) = browser.remove_elements(selectors)
+            && let Err(e) = browser.remove_elements(selectors).await
         {
             eprintln!("Failed to remove elements for site {}: {}", site.id, e);
         }
@@ -68,6 +68,7 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
 
     let links = browser
         .get_attrs(path, "href")
+        .await
         .map_err(|e| anyhow::anyhow!("get_attrs failed for site {}: {}", site.id, e))?;
 
     for raw_link in links {

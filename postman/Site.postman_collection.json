@@ -1,0 +1,451 @@
+{
+	"info": {
+		"_postman_id": "01068633-fce2-46d8-99c2-972d16e925d1",
+		"name": "Site",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1645693"
+	},
+	"item": [
+		{
+			"name": "List",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites?page=1&per_page=100",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "per_page",
+							"value": "100"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List by user",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/by-user?page=1&per_page=50",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						"by-user"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "per_page",
+							"value": "50"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List by token",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/by-token?page=1&per_page=50",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						"by-token"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "per_page",
+							"value": "50"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "دیجیاتو",
+							"type": "text"
+						},
+						{
+							"key": "url",
+							"value": "https://digiato.com/",
+							"type": "text"
+						},
+						{
+							"key": "url_list",
+							"value": "https://digiato.com/daily-timeline",
+							"type": "text"
+						},
+						{
+							"key": "path_link",
+							"value": "div#todaysNews > ul > li a.rowCard__title",
+							"type": "text"
+						},
+						{
+							"key": "path_title",
+							"value": "h1.dailyNewsPageHead__description--title",
+							"type": "text"
+						},
+						{
+							"key": "path_content",
+							"value": ".articlePost",
+							"type": "text"
+						},
+						{
+							"key": "path_image",
+							"value": "img.attachment-dotline-single-daily.size-dotline-single-daily.wp-post-image",
+							"type": "text"
+						},
+						{
+							"key": "path_video",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "path_remove",
+							"value": "r#\"[class*=\"RelatedArticleBlockBoxListTemplate\"]\"#,r#\"[class*=\"AdvertisingParser\"]\"#",
+							"type": "text"
+						},
+						{
+							"key": "next_check_time",
+							"value": "2025-11-10T12:00:00Z",
+							"type": "text"
+						},
+						{
+							"key": "screenshot",
+							"value": "false",
+							"type": "text"
+						},
+						{
+							"key": "status",
+							"value": "true",
+							"type": "text"
+						},
+						{
+							"key": "user_id",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "api_key_id",
+							"value": "1",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{domain}}/api/v1/sites",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "دیجیاتو",
+							"type": "text"
+						},
+						{
+							"key": "url",
+							"value": "https://digiato.com/",
+							"type": "text"
+						},
+						{
+							"key": "url_list",
+							"value": "https://digiato.com/daily-timeline",
+							"type": "text"
+						},
+						{
+							"key": "path_link",
+							"value": "div#todaysNews > ul > li a.rowCard__title",
+							"type": "text"
+						},
+						{
+							"key": "path_title",
+							"value": "h1.dailyNewsPageHead__description--title",
+							"type": "text"
+						},
+						{
+							"key": "path_content",
+							"value": ".articlePost",
+							"type": "text"
+						},
+						{
+							"key": "path_image",
+							"value": "img.attachment-dotline-single-daily.size-dotline-single-daily.wp-post-image",
+							"type": "text"
+						},
+						{
+							"key": "path_video",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "path_remove",
+							"value": "r#\"[class*=\"RelatedArticleBlockBoxListTemplate\"]\"#,r#\"[class*=\"AdvertisingParser\"]\"#",
+							"type": "text"
+						},
+						{
+							"key": "next_check_time",
+							"value": "2025-11-10T12:00:00Z",
+							"type": "text"
+						},
+						{
+							"key": "screenshot",
+							"value": "false",
+							"type": "text"
+						},
+						{
+							"key": "status",
+							"value": "true",
+							"type": "text"
+						},
+						{
+							"key": "user_id",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "api_key_id",
+							"value": "1",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/:site_id",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						":site_id"
+					],
+					"variable": [
+						{
+							"key": "site_id",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Show",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/:site_id",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						":site_id"
+					],
+					"variable": [
+						{
+							"key": "site_id",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/:site_id",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						":site_id"
+					],
+					"variable": [
+						{
+							"key": "site_id",
+							"value": "6"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

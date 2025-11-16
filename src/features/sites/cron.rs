@@ -1,6 +1,7 @@
 use crate::core::cron_manager::{CronDefinition, CronManager, boxed};
 use crate::core::state::AppState;
 use crate::features::sites::jobs::check_new_post::check_new_post;
+use crate::features::sites::jobs::cleanup_posts::cleanup_old_posts;
 use crate::features::sites::jobs::get_post_content::get_post_content;
 use std::time::Duration;
 
@@ -16,6 +17,19 @@ impl SiteCron {
                 boxed(|| async { check_new_post().await }),
                 boxed(|| async { get_post_content().await }),
             ],
+        };
+        CronManager::new(vec![job])
+    }
+}
+
+pub struct PostCleanupCron;
+impl PostCleanupCron {
+    pub async fn run(_app_state: AppState) -> CronManager {
+        let interval = Duration::from_secs(60 * 60 * 24);
+        let job = CronDefinition {
+            name: "cleanup_old_posts",
+            interval,
+            tasks: vec![boxed(|| async { cleanup_old_posts().await })],
         };
         CronManager::new(vec![job])
     }

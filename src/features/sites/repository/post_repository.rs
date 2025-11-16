@@ -7,7 +7,9 @@ use crate::features::sites::model::{posts, site};
 use crate::features::sites::validation::post_form::{PostForm, PostFormCreate};
 use crate::utility::state::app_state;
 use sea_orm::ColumnTrait;
-use sea_orm::{ActiveModelTrait, DbErr, EntityTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, DbErr, DeleteResult, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+};
 
 pub struct PostRepository;
 
@@ -146,6 +148,32 @@ impl PostRepository {
             .await
             .map(|_| true)
             .map_err(|e| e.to_string())
+    }
+
+    pub async fn cleanup_old_posts(keep_latest: u64) -> Result<u64, DbErr> {
+        if keep_latest == 0 {
+            return Ok(0);
+        }
+
+        let state = app_state();
+        let offset = keep_latest.saturating_sub(1);
+        let boundary_post = Posts::find()
+            .order_by_desc(Column::Id)
+            .offset(offset)
+            .limit(1)
+            .one(&state._db)
+            .await?;
+
+        let Some(boundary) = boundary_post else {
+            return Ok(0);
+        };
+
+        let result: DeleteResult = Posts::delete_many()
+            .filter(Column::Id.lt(boundary.id))
+            .exec(&state._db)
+            .await?;
+
+        Ok(result.rows_affected)
     }
 
     async fn find_existing_post(state: &AppState, post_id: i64) -> Result<Option<Model>, DbErr> {

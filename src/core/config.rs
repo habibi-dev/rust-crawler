@@ -19,6 +19,7 @@ pub struct Config {
     pub hmac: String,
     pub max_retry_post: u8,
     pub post_check_interval_minutes: u32,
+    pub post_keep_latest: u64,
 }
 
 impl Config {
@@ -94,6 +95,7 @@ impl Config {
             hmac: Self::app_hmac(),
             max_retry_post: Self::app_max_retry_post(),
             post_check_interval_minutes: Self::app_post_check_interval_minutes(),
+            post_keep_latest: Self::app_post_keep_latest(),
         }
     }
 
@@ -120,6 +122,13 @@ impl Config {
             .unwrap_or(String::from("15"))
             .parse()
             .unwrap_or(15)
+    }
+
+    fn app_post_keep_latest() -> u64 {
+        env::var("POST_KEEP_LATEST")
+            .unwrap_or_else(|_| String::from("1000"))
+            .parse()
+            .unwrap_or(1000)
     }
 
     fn app_host() -> String {

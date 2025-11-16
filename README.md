@@ -25,6 +25,19 @@ Rust Crawler is a scheduled data extraction service that launches headless Chrom
    ```
    The freshly generated admin API key is printed in the terminal once seeding finishes.
 
+## Linux users (Ubuntu/Debian)
+
+If you're running this project on Ubuntu/Debian, make sure your system is correctly prepared for headless Chrome.  
+Please follow this guide:
+
+👉 [Linux Setup (Headless Chrome)](LINUX_USE.md)
+
+This document covers:
+- creating a dedicated service user
+- removing snap-based Chromium
+- installing Google Chrome (deb)
+- configuring systemd to run the crawler
+
 ## Postman collections
 - Import the JSON files under `postman/` (`Users`, `Api Key`, `Site`, `Post`).
 - Set collection variables to match your `APP_HOST`, `APP_PORT`, and the admin API key to exercise CRUD flows across `/api/v1/*` endpoints.

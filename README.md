@@ -42,6 +42,9 @@ This document covers:
 - Import the JSON files under `postman/` (`Users`, `Api Key`, `Site`, `Post`).
 - Set collection variables to match your `APP_HOST`, `APP_PORT`, and the admin API key to exercise CRUD flows across `/api/v1/*` endpoints.
 
+### Incremental post fetching
+All post listing endpoints (`/api/v1/posts`, `/api/v1/posts/by-site/:site_id`, `/api/v1/posts/by-user`, and `/api/v1/posts/by-token`) accept an optional `post_id` query parameter. When provided, the API only returns posts whose identifier is greater than the supplied value, enabling clients to resume synchronization from the last processed record without re-downloading older data. This incremental strategy keeps network usage low and simplifies background sync jobs that periodically poll for fresh posts.
+
 ## Project layout
 ```
 src/

@@ -1,5 +1,5 @@
-use crate::core::dto::pagination::PaginationParams;
 use crate::core::response::{json_error, json_success};
+use crate::features::sites::dto::list_params::PostListParams;
 use crate::features::sites::repository::post_repository::PostRepository;
 use crate::features::sites::validation::post_form::{PostForm, PostFormCreate};
 use crate::features::users::service::api_key_user::ApiKey;
@@ -14,11 +14,10 @@ pub struct PostController;
 
 impl PostController {
     // GET /posts
-    pub async fn list(Query(p): Query<PaginationParams>) -> impl IntoResponse {
-        let page = p.page();
-        let per_page = p.per_page();
-
-        match PostRepository::list(page, per_page).await {
+    pub async fn list(Query(p): Query<PostListParams>) -> impl IntoResponse {
+        let (page, per_page, post_id) = Self::req_params(p);
+        println!("{post_id}");
+        match PostRepository::list(page, per_page, post_id).await {
             Ok(items) => json_success(items),
             Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         }
@@ -27,12 +26,10 @@ impl PostController {
     // GET /sites/:site_id/posts
     pub async fn list_by_site(
         Path(site_id): Path<i64>,
-        Query(p): Query<PaginationParams>,
+        Query(p): Query<PostListParams>,
     ) -> impl IntoResponse {
-        let page = p.page();
-        let per_page = p.per_page();
-
-        match PostRepository::list_by_site(site_id, page, per_page).await {
+        let (page, per_page, post_id) = Self::req_params(p);
+        match PostRepository::list_by_site(site_id, page, per_page, post_id).await {
             Ok(items) => json_success(items),
             Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         }
@@ -40,13 +37,11 @@ impl PostController {
 
     // GET /me/posts
     pub async fn list_by_user(
-        Query(p): Query<PaginationParams>,
+        Query(p): Query<PostListParams>,
         AuthUser(user): AuthUser,
     ) -> impl IntoResponse {
-        let page = p.page();
-        let per_page = p.per_page();
-
-        match PostRepository::list_by_user(user.id, page, per_page).await {
+        let (page, per_page, post_id) = Self::req_params(p);
+        match PostRepository::list_by_user(user.id, page, per_page, post_id).await {
             Ok(items) => json_success(items),
             Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         }
@@ -54,13 +49,11 @@ impl PostController {
 
     // GET /token/posts
     pub async fn list_by_token(
-        Query(p): Query<PaginationParams>,
+        Query(p): Query<PostListParams>,
         ApiKey(api_key): ApiKey,
     ) -> impl IntoResponse {
-        let page = p.page();
-        let per_page = p.per_page();
-
-        match PostRepository::list_by_api_key(api_key.id, page, per_page).await {
+        let (page, per_page, post_id) = Self::req_params(p);
+        match PostRepository::list_by_api_key(api_key.id, page, per_page, post_id).await {
             Ok(items) => json_success(items),
             Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         }
@@ -116,5 +109,12 @@ impl PostController {
             Ok(result) => json_success(result),
             Err(e) => json_error(StatusCode::BAD_REQUEST, e),
         }
+    }
+
+    fn req_params(p: PostListParams) -> (u64, u64, u64) {
+        let page: u64 = p.pagination.page();
+        let per_page: u64 = p.pagination.per_page();
+        let post_id: u64 = p.post_id.unwrap_or(0);
+        (page, per_page, post_id)
     }
 }

@@ -14,9 +14,11 @@ use sea_orm::{
 pub struct PostRepository;
 
 impl PostRepository {
-    pub async fn list(page: u64, per_page: u64) -> Result<Items<Model>, DbErr> {
+    pub async fn list(page: u64, per_page: u64, post_id: u64) -> Result<Items<Model>, DbErr> {
         let state = app_state();
-        let q = Posts::find().order_by_desc(Column::Id);
+        let q = Posts::find()
+            .filter(Column::Id.gt(post_id))
+            .order_by_desc(Column::Id);
         paginate::<posts::Entity>(q, &state._db, page, per_page).await
     }
 
@@ -24,10 +26,12 @@ impl PostRepository {
         site_id: i64,
         page: u64,
         per_page: u64,
+        post_id: u64,
     ) -> Result<Items<Model>, DbErr> {
         let state = app_state();
         let q = Posts::find()
             .filter(Column::SiteId.eq(site_id))
+            .filter(Column::Id.gt(post_id))
             .order_by_desc(Column::Id);
         paginate::<posts::Entity>(q, &state._db, page, per_page).await
     }
@@ -36,10 +40,12 @@ impl PostRepository {
         user_id: i64,
         page: u64,
         per_page: u64,
+        post_id: u64,
     ) -> Result<Items<Model>, DbErr> {
         let state = app_state();
         let q = Posts::find()
             .filter(Column::UserId.eq(user_id))
+            .filter(Column::Id.gt(post_id))
             .order_by_desc(Column::Id);
         paginate::<posts::Entity>(q, &state._db, page, per_page).await
     }
@@ -48,10 +54,12 @@ impl PostRepository {
         api_key_id: i64,
         page: u64,
         per_page: u64,
+        post_id: u64,
     ) -> Result<Items<Model>, DbErr> {
         let state = app_state();
         let q = Posts::find()
             .filter(Column::ApiKeyId.eq(api_key_id))
+            .filter(Column::Id.gt(post_id))
             .order_by_desc(Column::Id);
         paginate::<posts::Entity>(q, &state._db, page, per_page).await
     }

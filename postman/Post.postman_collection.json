@@ -27,7 +27,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/api/v1/posts?page=1&per_page=50",
+					"raw": "{{domain}}/api/v1/posts?pagination[page]=1&pagination[per_page]=10&post_id=0",
 					"host": [
 						"{{domain}}"
 					],
@@ -38,12 +38,16 @@
 					],
 					"query": [
 						{
-							"key": "page",
+							"key": "pagination[page]",
 							"value": "1"
 						},
 						{
-							"key": "per_page",
-							"value": "50"
+							"key": "pagination[per_page]",
+							"value": "10"
+						},
+						{
+							"key": "post_id",
+							"value": "0"
 						}
 					]
 				}
@@ -71,7 +75,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/api/v1/posts/by-site/:site_id?page=1&per_page=50",
+					"raw": "{{domain}}/api/v1/posts/by-site/:site_id?pagination[page]=1&pagination[per_page]=10&post_id=0",
 					"host": [
 						"{{domain}}"
 					],
@@ -84,12 +88,16 @@
 					],
 					"query": [
 						{
-							"key": "page",
+							"key": "pagination[page]",
 							"value": "1"
 						},
 						{
-							"key": "per_page",
-							"value": "50"
+							"key": "pagination[per_page]",
+							"value": "10"
+						},
+						{
+							"key": "post_id",
+							"value": "0"
 						}
 					],
 					"variable": [
@@ -123,7 +131,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/api/v1/posts/by-user?page=1&per_page=50",
+					"raw": "{{domain}}/api/v1/posts/by-user?pagination[page]=1&pagination[per_page]=10&post_id=0",
 					"host": [
 						"{{domain}}"
 					],
@@ -135,12 +143,16 @@
 					],
 					"query": [
 						{
-							"key": "page",
+							"key": "pagination[page]",
 							"value": "1"
 						},
 						{
-							"key": "per_page",
-							"value": "50"
+							"key": "pagination[per_page]",
+							"value": "10"
+						},
+						{
+							"key": "post_id",
+							"value": "0"
 						}
 					]
 				}
@@ -168,7 +180,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/api/v1/posts/by-token?page=1&per_page=50",
+					"raw": "{{domain}}/api/v1/posts/by-token?pagination[page]=1&pagination[per_page]=10&post_id=0",
 					"host": [
 						"{{domain}}"
 					],
@@ -180,12 +192,16 @@
 					],
 					"query": [
 						{
-							"key": "page",
+							"key": "pagination[page]",
 							"value": "1"
 						},
 						{
-							"key": "per_page",
-							"value": "50"
+							"key": "pagination[per_page]",
+							"value": "10"
+						},
+						{
+							"key": "post_id",
+							"value": "0"
 						}
 					]
 				}

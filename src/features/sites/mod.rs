@@ -1,5 +1,6 @@
 pub mod controller;
 pub mod cron;
+mod dto;
 pub mod jobs;
 pub mod model;
 pub mod repository;

@@ -141,6 +141,42 @@
 			"response": []
 		},
 		{
+			"name": "List by token (all)",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/by-token/all",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						"by-token",
+						"all"
+					]
+				}
+			},
+			"response": []
+		},
+		{
 			"name": "Create",
 			"request": {
 				"auth": {
@@ -165,37 +201,37 @@
 					"urlencoded": [
 						{
 							"key": "name",
-							"value": "دیجیاتو",
+							"value": "",
 							"type": "text"
 						},
 						{
 							"key": "url",
-							"value": "https://digiato.com/",
+							"value": "",
 							"type": "text"
 						},
 						{
 							"key": "url_list",
-							"value": "https://digiato.com/daily-timeline",
+							"value": "",
 							"type": "text"
 						},
 						{
 							"key": "path_link",
-							"value": "div#todaysNews > ul > li a.rowCard__title",
+							"value": "",
 							"type": "text"
 						},
 						{
 							"key": "path_title",
-							"value": "h1.dailyNewsPageHead__description--title",
+							"value": "",
 							"type": "text"
 						},
 						{
 							"key": "path_content",
-							"value": ".articlePost",
+							"value": "",
 							"type": "text"
 						},
 						{
 							"key": "path_image",
-							"value": "img.attachment-dotline-single-daily.size-dotline-single-daily.wp-post-image",
+							"value": "",
 							"type": "text"
 						},
 						{
@@ -205,12 +241,7 @@
 						},
 						{
 							"key": "path_remove",
-							"value": "r#\"[class*=\"RelatedArticleBlockBoxListTemplate\"]\"#,r#\"[class*=\"AdvertisingParser\"]\"#",
-							"type": "text"
-						},
-						{
-							"key": "next_check_time",
-							"value": "2025-11-10T12:00:00Z",
+							"value": "",
 							"type": "text"
 						},
 						{

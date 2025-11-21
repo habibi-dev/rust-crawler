@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "871c02ad-19b6-4313-b765-a294e9bf0c71",
+		"_postman_id": "6c3c95c4-2d63-404b-95ee-72f86b8bfb08",
 		"name": "Api Key",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "1645693"
@@ -65,12 +65,12 @@
 					"urlencoded": [
 						{
 							"key": "user_id",
-							"value": "3",
+							"value": "2",
 							"type": "text"
 						},
 						{
 							"key": "status",
-							"value": "false",
+							"value": "true",
 							"type": "text"
 						}
 					]
@@ -161,20 +161,20 @@
 				"method": "DELETE",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/api/v1/users/:user_id",
+					"raw": "{{domain}}/api/v1/api-keys/:id",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
 						"api",
 						"v1",
-						"users",
-						":user_id"
+						"api-keys",
+						":id"
 					],
 					"variable": [
 						{
-							"key": "user_id",
-							"value": "10"
+							"key": "id",
+							"value": "2"
 						}
 					]
 				}

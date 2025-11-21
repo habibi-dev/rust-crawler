@@ -49,14 +49,10 @@ impl RepositoryApiKey {
         Ok(result.rows_affected > 0)
     }
 
-    pub async fn delete(raw_key: &str) -> Result<bool, String> {
+    pub async fn delete(id: i64) -> Result<bool, String> {
         let state = app_state();
 
-        let Some(apikey) = Self::get_by_key(raw_key).await else {
-            return Err("Api key not found".to_string());
-        };
-
-        match Entity::delete_by_id(apikey.id).exec(&state._db).await {
+        match Entity::delete_by_id(id).exec(&state._db).await {
             Ok(_) => Ok(true),
             Err(err) => Err(err.to_string()),
         }
@@ -68,6 +64,16 @@ impl RepositoryApiKey {
 
         Entity::find()
             .filter(Column::KeyHash.eq(key))
+            .one(&state._db)
+            .await
+            .ok()
+            .flatten()
+    }
+
+    pub async fn get_by_id(key_id: i64) -> Option<Model> {
+        let state = app_state();
+
+        Entity::find_by_id(key_id)
             .one(&state._db)
             .await
             .ok()

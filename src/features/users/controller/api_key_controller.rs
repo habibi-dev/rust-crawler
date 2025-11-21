@@ -78,8 +78,8 @@ impl ApiKeyController {
         }
     }
 
-    pub async fn delete(Path(api_key): Path<String>) -> Response {
-        match RepositoryApiKey::delete(api_key.as_str()).await {
+    pub async fn delete(Path(key_id): Path<i64>) -> Response {
+        match RepositoryApiKey::delete(key_id).await {
             Ok(result) => json_success(result),
             Err(message) => json_error(StatusCode::BAD_REQUEST, message.to_string()),
         }

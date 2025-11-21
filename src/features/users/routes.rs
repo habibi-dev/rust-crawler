@@ -3,7 +3,7 @@ use crate::features::users::controller::user_controller::UserController;
 use crate::middleware::auth::auth;
 use crate::middleware::is_admin::is_admin;
 use crate::utility::state::app_state;
-use axum::routing::{get, put};
+use axum::routing::{delete, get, put};
 use axum::{Router, middleware};
 
 pub fn users_route() -> (&'static str, Router) {
@@ -43,10 +43,8 @@ pub fn api_key_route() -> (&'static str, Router) {
             "/",
             get(ApiKeyController::list).post(ApiKeyController::create),
         )
-        .route(
-            "/{api_key}",
-            put(ApiKeyController::update).delete(ApiKeyController::delete),
-        )
+        .route("/{api_key}", put(ApiKeyController::update))
+        .route("/{key_id}", delete(ApiKeyController::delete))
         .route_layer(middleware_is_admin);
 
     (

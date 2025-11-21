@@ -66,6 +66,16 @@ impl SiteRepository {
             .await
     }
 
+    pub async fn list_all_by_user_id(id: i64) -> Result<Vec<Model>, DbErr> {
+        let state = app_state();
+
+        Site::find()
+            .filter(Column::UserId.eq(id))
+            .order_by_desc(Column::Id)
+            .all(&state._db)
+            .await
+    }
+
     pub async fn all() -> Result<Vec<Model>, DbErr> {
         let state = app_state();
         Site::find()

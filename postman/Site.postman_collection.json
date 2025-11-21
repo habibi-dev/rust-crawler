@@ -177,6 +177,42 @@
 			"response": []
 		},
 		{
+			"name": "List by User(all)",
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-key}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "X-API-Key",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/sites/by-user/all",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"sites",
+						"by-user",
+						"all"
+					]
+				}
+			},
+			"response": []
+		},
+		{
 			"name": "Create",
 			"request": {
 				"auth": {

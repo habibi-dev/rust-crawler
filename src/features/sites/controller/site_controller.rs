@@ -62,6 +62,13 @@ impl SiteController {
         }
     }
 
+    pub async fn list_all_by_user(AuthUser(user): AuthUser) -> impl IntoResponse {
+        match SiteRepository::list_all_by_user_id(user.id).await {
+            Ok(items) => json_success(items),
+            Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+        }
+    }
+
     // POST /sites
     pub async fn create(
         ApiKey(api_key): ApiKey,

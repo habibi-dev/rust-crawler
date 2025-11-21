@@ -16,7 +16,6 @@ impl PostController {
     // GET /posts
     pub async fn list(Query(p): Query<PostListParams>) -> impl IntoResponse {
         let (page, per_page, post_id) = Self::req_params(p);
-        println!("{post_id}");
         match PostRepository::list(page, per_page, post_id).await {
             Ok(items) => json_success(items),
             Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),

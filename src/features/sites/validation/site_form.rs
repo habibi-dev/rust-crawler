@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use validator::Validate;
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, Clone)]
 pub struct SiteForm {
     pub name: String,
     pub url: String,
@@ -17,6 +17,6 @@ pub struct SiteForm {
     pub screenshot: Option<bool>,
     pub status: Option<bool>,
 
-    pub user_id: i64,
-    pub api_key_id: i64,
+    pub user_id: Option<i64>,
+    pub api_key_id: Option<i64>,
 }

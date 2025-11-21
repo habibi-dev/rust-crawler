@@ -4,15 +4,32 @@ use crate::features::sites::model::prelude::Site;
 use crate::features::sites::model::site;
 use crate::features::sites::model::site::{Column, Model};
 use crate::features::sites::validation::site_form::SiteForm;
+use crate::features::users::model::{api_key, user};
 use crate::utility::state::app_state;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, QueryFilter, QueryOrder, QueryTrait, Set,
+};
+use std::ops::Not;
+use std::sync::Arc;
 
 pub struct SiteRepository;
 
 impl SiteRepository {
-    pub async fn list(page: u64, per_page: u64) -> Result<Items<Model>, DbErr> {
+    pub async fn list(
+        page: u64,
+        per_page: u64,
+        user: Arc<user::Model>,
+        api_key: Arc<api_key::Model>,
+    ) -> Result<Items<Model>, DbErr> {
         let state = app_state();
-        let q = Site::find().order_by_desc(Column::Id);
+
+        let q = Site::find()
+            .apply_if(user.is_admin.not().then_some(()), |q, _| {
+                q.filter(Column::UserId.eq(user.id))
+                    .filter(Column::ApiKeyId.eq(api_key.id))
+            })
+            .order_by_desc(Column::Id);
+
         paginate::<site::Entity>(q, &state._db, page, per_page).await
     }
     pub async fn list_by_user(
@@ -61,6 +78,11 @@ impl SiteRepository {
     pub async fn create(data: SiteForm) -> Result<Option<Model>, DbErr> {
         let state = app_state();
 
+        let user_id = data.user_id.expect("user_id must be set before create");
+        let api_key_id = data
+            .api_key_id
+            .expect("api_key_id must be set before create");
+
         let am = site::ActiveModel {
             name: Set(data.name),
             url: Set(data.url),
@@ -73,9 +95,9 @@ impl SiteRepository {
             path_remove: Set(data.path_remove),
             screenshot: Set(data.screenshot),
             status: Set(data.status),
-            user_id: Set(data.user_id),
-            api_key_id: Set(data.api_key_id),
-            ..Default::default() // created_at is expected to be DB default
+            user_id: Set(user_id),
+            api_key_id: Set(api_key_id),
+            ..Default::default()
         };
 
         match am.insert(&state._db).await {
@@ -104,8 +126,6 @@ impl SiteRepository {
             path_remove: Set(data.path_remove),
             screenshot: Set(data.screenshot),
             status: Set(data.status),
-            user_id: Set(data.user_id),
-            api_key_id: Set(data.api_key_id),
             ..Default::default()
         };
 

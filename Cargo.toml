@@ -1,6 +1,6 @@
 [package]
 name = "rust-crawler"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 license = "MIT"
 authors = ["Habibi-Dev"]
@@ -30,5 +30,5 @@ askama = "0.14.0"
 validator = { version = "0.20.0", features = ["derive"] }
 tower = { version = "0.5.2", features = ["timeout"] }
 tower-http = { version = "0.6.6", features = ["trace"] }
-chrono = { version = "0.4.39", features = ["clock", "serde"] }
+#chrono = { version = "0.4.39", features = ["clock", "serde"] }
 headless_chrome = { version = "1.0.18", features = ["fetch"] }

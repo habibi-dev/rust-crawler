@@ -44,7 +44,7 @@ pub fn api_key_route() -> (&'static str, Router) {
             get(ApiKeyController::list).post(ApiKeyController::create),
         )
         .route("/{api_key}", put(ApiKeyController::update))
-        .route("/{key_id}", delete(ApiKeyController::delete))
+        .route("/{api_key}", delete(ApiKeyController::delete))
         .route_layer(middleware_is_admin);
 
     (

@@ -27,6 +27,7 @@ pub fn site_route() -> (&'static str, Router) {
         Router::new()
             .route("/by-user", get(SiteController::list_by_user))
             .route("/by-token", get(SiteController::list_by_token))
+            .route("/by-token/all", get(SiteController::list_all_by_token))
             .merge(admin_router)
             .route_layer(mw_auth),
     )

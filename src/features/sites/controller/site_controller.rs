@@ -49,6 +49,13 @@ impl SiteController {
         }
     }
 
+    pub async fn list_all_by_token(ApiKey(api_key): ApiKey) -> impl IntoResponse {
+        match SiteRepository::list_all_by_api_key(api_key.id).await {
+            Ok(items) => json_success(items),
+            Err(e) => json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+        }
+    }
+
     // POST /sites
     pub async fn create(Form(form): Form<SiteForm>) -> Response {
         if let Err(e) = form.validate() {

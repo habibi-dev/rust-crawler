@@ -39,6 +39,16 @@ impl SiteRepository {
         paginate::<site::Entity>(q, &state._db, page, per_page).await
     }
 
+    pub async fn list_all_by_api_key(api_key_id: i64) -> Result<Vec<Model>, DbErr> {
+        let state = app_state();
+
+        Site::find()
+            .filter(Column::ApiKeyId.eq(api_key_id))
+            .order_by_desc(Column::Id)
+            .all(&state._db)
+            .await
+    }
+
     pub async fn all() -> Result<Vec<Model>, DbErr> {
         let state = app_state();
         Site::find()

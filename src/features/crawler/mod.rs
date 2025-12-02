@@ -3,7 +3,7 @@ use headless_chrome::{Browser as CBrowser, Tab};
 use serde_json::{json, to_string};
 use std::error::Error as StdError;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::task::spawn_blocking;
 
 pub type AnyError = Box<dyn StdError + Send + Sync>;
@@ -47,9 +47,29 @@ impl Browser {
             };
 
             tab.call_method(set_device_metrics)?;
+
+            let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+                              AppleWebKit/537.36 (KHTML, like Gecko) \
+                              Chrome/123.0.0.0 Safari/537.36";
+
+            // Prefer Persian, then English
+            let accept_language = "fa-IR,fa;q=0.9,en-US;q=0.8,en;q=0.7";
+
+            // This becomes navigator.platform
+            let platform = "Win32";
+
+            // If your headless_chrome version has this signature:
+            // fn set_user_agent(&self, ua: &str, accept_language: Option<String>, platform: Option<String>)
+            tab.set_user_agent(
+                user_agent,
+                Some(&*accept_language.to_string()),
+                Some(&*platform.to_string()),
+            )?;
+
             tab.navigate_to(&target_url)?;
-            tab.wait_for_element_with_custom_timeout("body", Duration::from_secs(10))?;
-            std::thread::sleep(Duration::from_millis(2000));
+
+            // Wait until the page is fully loaded (document.readyState === "complete")
+            wait_for_page_load(&tab, Duration::from_secs(30))?;
 
             Ok(Self {
                 _browser: browser,
@@ -199,6 +219,22 @@ impl Browser {
         })
         .await
     }
+
+    pub async fn wait_for_selector(
+        &self,
+        selector: &str,
+        timeout: Duration,
+    ) -> Result<(), AnyError> {
+        let tab = self.tab.clone();
+        let selector = selector.to_string();
+
+        run_blocking_chrome_task(move || {
+            // Wait until an element matching selector appears or timeout
+            tab.wait_for_element_with_custom_timeout(&selector, timeout)?;
+            Ok(())
+        })
+        .await
+    }
 }
 
 async fn run_blocking_chrome_task<F, R>(task: F) -> Result<R, AnyError>
@@ -209,4 +245,26 @@ where
     spawn_blocking(task)
         .await
         .map_err(|err| -> AnyError { Box::new(err) })?
+}
+
+// Synchronous helper used inside spawn_blocking to wait for full page load
+fn wait_for_page_load(tab: &Tab, timeout: Duration) -> Result<(), AnyError> {
+    let start = Instant::now();
+
+    loop {
+        if start.elapsed() > timeout {
+            return Err("Page load timeout".into());
+        }
+
+        let result = tab.evaluate("document.readyState", false)?;
+        let state = result.value.as_ref().and_then(|v| v.as_str()).unwrap_or("");
+
+        if state == "complete" {
+            break;
+        }
+
+        std::thread::sleep(Duration::from_millis(200));
+    }
+
+    Ok(())
 }

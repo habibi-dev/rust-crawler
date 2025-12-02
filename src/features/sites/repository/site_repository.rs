@@ -143,6 +143,23 @@ impl SiteRepository {
         Ok(Some(updated))
     }
 
+    pub async fn disable(site_id: i64) -> Result<Option<Model>, DbErr> {
+        let state = app_state();
+
+        let Some(_existing) = site::Entity::find_by_id(site_id).one(&state._db).await? else {
+            return Ok(None);
+        };
+
+        let am = site::ActiveModel {
+            id: Set(site_id),
+            status: Set(Option::from(false)),
+            ..Default::default()
+        };
+
+        let updated = am.update(&state._db).await?;
+        Ok(Some(updated))
+    }
+
     pub async fn delete(site_id: i64) -> Result<bool, String> {
         let state = app_state();
 

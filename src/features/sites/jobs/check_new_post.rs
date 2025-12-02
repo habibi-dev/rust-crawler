@@ -6,6 +6,8 @@ use crate::features::sites::utility::normalize_link::normalize_link;
 use crate::features::sites::validation::post_form::PostFormCreate;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+use tokio::time::{Duration, timeout};
+use crate::features::sites::utility::site_error_tracker::{register_site_error, reset_site_error};
 
 pub async fn check_new_post() {
     let sites = match SiteRepository::all().await {
@@ -21,18 +23,21 @@ pub async fn check_new_post() {
 
     for site in sites {
         let sem = sem.clone();
-
         let permit = match sem.acquire_owned().await {
             Ok(p) => p,
             Err(_) => break,
         };
 
         tokio::spawn(async move {
-            // keep permit alive for whole site processing
             let _permit = permit;
 
-            if let Err(e) = process_site(site).await {
-                eprintln!("process_site failed: {e}");
+            let timeout_result =
+                tokio::time::timeout(Duration::from_secs(60), process_site(site)).await;
+
+            match timeout_result {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => eprintln!("process_site failed: {e}"),
+                Err(_) => eprintln!("process_site timeout"),
             }
         });
     }
@@ -44,13 +49,44 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
         _ => return Ok(()),
     };
 
-    let browser = match Browser::new(&site.url_list, None, None).await {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("Browser failed to start: {}", e);
+    // Timeout for Browser::new
+    let browser = match timeout(
+        Duration::from_secs(30),
+        Browser::new(&site.url_list, None, None),
+    )
+    .await
+    {
+        Ok(Ok(b)) => b,
+        Ok(Err(e)) => {
+            eprintln!("Browser failed to start for site {}: {}", site.id, e);
+
+            block(&site).await;
+
+            return Ok(());
+        }
+        Err(_) => {
+            eprintln!("Browser startup timeout for site {}", site.id);
+            block(&site).await;
             return Ok(());
         }
     };
+
+    if let Err(e) = browser
+        .wait_for_selector(path, Duration::from_secs(20))
+        .await
+    {
+        eprintln!(
+            "wait_for_selector failed for site {} (selector: {}): {}",
+            site.id, path, e
+        );
+
+        block(&site).await;
+
+        return Ok(());
+    }
+
+    reset_site_error(site.id).await;
+
 
     if let Some(remove_str) = &site.path_remove {
         let selectors: Vec<String> = remove_str
@@ -59,17 +95,36 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
             .filter(|s| !s.is_empty())
             .collect();
 
-        if !selectors.is_empty()
-            && let Err(e) = browser.remove_elements(selectors).await
-        {
-            eprintln!("Failed to remove elements for site {}: {}", site.id, e);
+        if !selectors.is_empty() {
+            let remove_result =
+                timeout(Duration::from_secs(10), browser.remove_elements(selectors)).await;
+
+            match remove_result {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    eprintln!("Failed to remove elements for site {}: {}", site.id, e);
+                }
+                Err(_) => {
+                    eprintln!("remove_elements timeout for site {}", site.id);
+                }
+            }
         }
     }
 
-    let links = browser
-        .get_attrs(path, "href")
-        .await
-        .map_err(|e| anyhow::anyhow!("get_attrs failed for site {}: {}", site.id, e))?;
+    let links = match timeout(Duration::from_secs(20), browser.get_attrs(path, "href")).await {
+        Ok(Ok(links)) => links,
+        Ok(Err(e)) => {
+            return Err(anyhow::anyhow!(
+                "get_attrs failed for site {}: {}",
+                site.id,
+                e
+            ));
+        }
+        Err(_) => {
+            eprintln!("get_attrs timeout for site {}", site.id);
+            return Ok(());
+        }
+    };
 
     for raw_link in links {
         let link = normalize_link(&site.url, &raw_link);
@@ -82,7 +137,6 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
         })
         .await
         {
-            // ignore unique constraint errors
             let msg = e.to_string();
             if !msg.contains("UNIQUE constraint failed") {
                 eprintln!("Failed to create post for site {}: {}", site.id, msg);
@@ -91,4 +145,17 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn block(site: &Model) {
+    let count = register_site_error(site.id).await;
+    if count >= 5 {
+        eprintln!(
+            "Site {} reached error threshold ({}), disabling",
+            site.id, count
+        );
+        if let Err(e) = SiteRepository::disable(site.id).await {
+            eprintln!("Failed to disable site {}: {}", site.id, e);
+        }
+    }
 }

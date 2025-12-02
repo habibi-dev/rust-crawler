@@ -106,6 +106,7 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
                 }
                 Err(_) => {
                     eprintln!("remove_elements timeout for site {}", site.id);
+                    block(&site).await;
                 }
             }
         }
@@ -122,6 +123,7 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
         }
         Err(_) => {
             eprintln!("get_attrs timeout for site {}", site.id);
+            block(&site).await;
             return Ok(());
         }
     };

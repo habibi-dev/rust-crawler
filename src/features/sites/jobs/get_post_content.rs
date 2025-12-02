@@ -7,6 +7,8 @@ use crate::features::sites::validation::post_form::PostForm;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::time::{Duration, timeout};
+use crate::features::sites::repository::site_repository::SiteRepository;
+use crate::features::sites::utility::site_error_tracker::register_site_error;
 
 const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -108,6 +110,7 @@ async fn process_post(post: Model, site: site::Model) {
 
     if title.is_empty() && image.is_empty() && video.is_empty() && content.is_empty() {
         mark_post_failed(post.id, "no content extracted").await;
+        block(&site).await;
         return;
     }
 
@@ -133,5 +136,18 @@ async fn mark_post_failed(post_id: i64, reason: &str) {
     eprintln!("Post {} failed: {}", post_id, reason);
     if let Err(db_err) = PostRepository::update_failed(post_id).await {
         eprintln!("Failed to mark post {} as failed: {}", post_id, db_err);
+    }
+}
+
+async fn block(site: &site::Model) {
+    let count = register_site_error(site.id).await;
+    if count >= 5 {
+        eprintln!(
+            "Site {} reached error threshold ({}), disabling",
+            site.id, count
+        );
+        if let Err(e) = SiteRepository::disable(site.id).await {
+            eprintln!("Failed to disable site {}: {}", site.id, e);
+        }
     }
 }

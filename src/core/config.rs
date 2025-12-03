@@ -24,6 +24,8 @@ pub struct Config {
     pub post_concurrency: usize,
     pub post_timeout_seconds: u64,
     pub browser_start_timeout_seconds: u64,
+    pub log_directory: String,
+    pub log_retention_days: u64,
 }
 
 impl Config {
@@ -103,6 +105,8 @@ impl Config {
             post_concurrency: Self::post_processing_concurrency(),
             post_timeout_seconds: Self::post_processing_timeout_seconds(),
             browser_start_timeout_seconds: Self::browser_start_timeout_seconds(),
+            log_directory: Self::log_directory(),
+            log_retention_days: Self::log_retention_days(),
         }
     }
 
@@ -183,5 +187,17 @@ impl Config {
             .and_then(|value| value.parse::<u64>().ok())
             .filter(|value| *value > 0)
             .unwrap_or(25)
+    }
+
+    pub fn log_directory() -> String {
+        env::var("LOG_DIRECTORY").unwrap_or_else(|_| "logs".into())
+    }
+
+    pub fn log_retention_days() -> u64 {
+        env::var("LOG_RETENTION_DAYS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(3)
     }
 }

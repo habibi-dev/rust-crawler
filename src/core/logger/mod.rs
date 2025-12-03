@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
-use std::fs;
+use chrono::{DateTime, Local, NaiveDate};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tracing_appender::non_blocking::{self, WorkerGuard};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::filter;
 use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
@@ -50,13 +51,11 @@ impl LoggingGuard {
             Self::build_layer(targets::CRAWLER_POST, &crawler_post_dir, &mut guards)?;
         let system_layer = Self::build_layer(targets::SYSTEM, &system_dir, &mut guards)?;
 
-        // Collect all layers into a Vec; Vec<L> where L: Layer<Registry> itself
-        // implements Layer<Registry>, so we only need a single `.with(...)`.
         let layers: Vec<Box<dyn Layer<Registry> + Send + Sync + 'static>> = vec![
-            request_layer.boxed(),
-            crawler_site_layer.boxed(),
-            crawler_post_layer.boxed(),
-            system_layer.boxed(),
+            request_layer,
+            crawler_site_layer,
+            crawler_post_layer,
+            system_layer,
         ];
 
         let subscriber = Registry::default().with(layers);
@@ -125,9 +124,8 @@ impl LoggingGuard {
         target: &'static str,
         directory: &Path,
         guards: &mut Vec<WorkerGuard>,
-    ) -> Result<impl Layer<Registry> + Send + Sync + 'static> {
-        let file_name = format!("{}.log", target);
-        let appender = RollingFileAppender::new(Rotation::DAILY, directory, file_name);
+    ) -> Result<Box<dyn Layer<Registry> + Send + Sync + 'static>> {
+        let appender = DailyLogWriter::new(directory, target)?;
         let (writer, guard) = non_blocking::NonBlockingBuilder::default()
             .lossy(false)
             .finish(appender);
@@ -142,6 +140,122 @@ impl LoggingGuard {
                 metadata.target() == target
             }));
 
-        Ok(layer)
+        Ok(layer.boxed())
+    }
+}
+
+// Holds current file and date for rotation.
+struct DailyLogState {
+    current_date: NaiveDate,
+    file: File,
+}
+
+// Writer that keeps an "active" file (target.log) for today and archives
+// previous day's file as target-YYYY-MM-DD.log on date change.
+struct DailyLogWriter {
+    directory: PathBuf,
+    file_stem: String,
+    state: Mutex<DailyLogState>,
+}
+
+impl DailyLogWriter {
+    fn new(directory: &Path, file_stem: &str) -> Result<Self> {
+        if !directory.exists() {
+            fs::create_dir_all(directory).context("Failed to create log directory")?;
+        }
+
+        let state = Self::prepare_state(directory, file_stem)?;
+
+        Ok(Self {
+            directory: directory.to_path_buf(),
+            file_stem: file_stem.to_string(),
+            state: Mutex::new(state),
+        })
+    }
+
+    fn prepare_state(directory: &Path, file_stem: &str) -> Result<DailyLogState> {
+        let today = Local::now().date_naive();
+        let active_path = Self::active_path(directory, file_stem);
+
+        if let Ok(metadata) = fs::metadata(&active_path)
+            && let Ok(modified) = metadata.modified()
+        {
+            let modified_date = DateTime::<Local>::from(modified).date_naive();
+            if modified_date != today {
+                let archived_path = Self::archived_path(directory, file_stem, modified_date);
+                if let Err(err) = fs::rename(&active_path, &archived_path) {
+                    return Err(anyhow::anyhow!(
+                        "Failed to archive outdated log file {:?}: {}",
+                        active_path,
+                        err
+                    ));
+                }
+            }
+        }
+
+        let file = Self::open_active_file(&active_path)?;
+
+        Ok(DailyLogState {
+            current_date: today,
+            file,
+        })
+    }
+
+    fn open_active_file(path: &Path) -> Result<File> {
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .with_context(|| format!("Failed to open log file at {:?}", path))
+    }
+
+    fn active_path(directory: &Path, file_stem: &str) -> PathBuf {
+        directory.join(format!("{}.log", file_stem))
+    }
+
+    fn archived_path(directory: &Path, file_stem: &str, date: NaiveDate) -> PathBuf {
+        directory.join(format!("{}-{}.log", file_stem, date.format("%Y-%m-%d")))
+    }
+
+    fn rotate_if_needed(&self, state: &mut DailyLogState) -> io::Result<()> {
+        let today = Local::now().date_naive();
+        if state.current_date == today {
+            return Ok(());
+        }
+
+        let active_path = Self::active_path(&self.directory, &self.file_stem);
+        let archived_path =
+            Self::archived_path(&self.directory, &self.file_stem, state.current_date);
+
+        if active_path.exists() {
+            fs::rename(&active_path, &archived_path)?;
+        }
+
+        state.file =
+            Self::open_active_file(&active_path).map_err(|e| io::Error::other(e.to_string()))?;
+        state.current_date = today;
+
+        Ok(())
+    }
+}
+
+impl Write for DailyLogWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| io::Error::other("Logger state poisoned"))?;
+
+        self.rotate_if_needed(&mut state)?;
+        state.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| io::Error::other("Logger state poisoned"))?;
+
+        state.file.flush()
     }
 }

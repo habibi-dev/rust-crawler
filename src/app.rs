@@ -8,12 +8,16 @@ use anyhow::Context;
 use tracing::info;
 
 pub async fn app() -> anyhow::Result<()> {
-    let _logging_guard =
-        LoggingGuard::initialize("logs", Some(3)).context("Failed to initialize logger")?;
-    info!(target: targets::SYSTEM, "Logger initialized with daily rotation and retention policy");
-
     // Load configuration
     let config = Config::load();
+
+    let _logging_guard =
+        LoggingGuard::initialize(&config.log_directory, Some(config.log_retention_days))
+            .context("Failed to initialize logger")?;
+    info!(
+        target: targets::SYSTEM,
+        "Logger initialized with daily rotation and retention policy"
+    );
     info!(target: targets::SYSTEM, "Configuration loaded and environment prepared");
 
     // Setup database connection

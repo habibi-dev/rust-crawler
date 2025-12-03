@@ -20,6 +20,9 @@ pub struct Config {
     pub max_retry_post: u8,
     pub post_check_interval_minutes: u32,
     pub post_keep_latest: u64,
+    pub post_concurrency: usize,
+    pub post_timeout_seconds: u64,
+    pub browser_start_timeout_seconds: u64,
 }
 
 impl Config {
@@ -96,6 +99,9 @@ impl Config {
             max_retry_post: Self::app_max_retry_post(),
             post_check_interval_minutes: Self::app_post_check_interval_minutes(),
             post_keep_latest: Self::app_post_keep_latest(),
+            post_concurrency: Self::post_processing_concurrency(),
+            post_timeout_seconds: Self::post_processing_timeout_seconds(),
+            browser_start_timeout_seconds: Self::browser_start_timeout_seconds(),
         }
     }
 
@@ -152,5 +158,29 @@ impl Config {
             .unwrap_or_else(|_| "8080".into())
             .parse()
             .unwrap_or(8080)
+    }
+
+    fn post_processing_concurrency() -> usize {
+        env::var("CRAWLER_POST_CONCURRENCY")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(10)
+    }
+
+    fn post_processing_timeout_seconds() -> u64 {
+        env::var("CRAWLER_POST_TIMEOUT")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(15)
+    }
+
+    fn browser_start_timeout_seconds() -> u64 {
+        env::var("CRAWLER_BROWSER_TIMEOUT")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(25)
     }
 }

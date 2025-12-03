@@ -8,60 +8,50 @@ use crate::features::sites::validation::post_form::{PostForm, PostFormCreate};
 use crate::utility::state::app_state;
 use sea_orm::ColumnTrait;
 use sea_orm::{
-    ActiveModelTrait, DbErr, DeleteResult, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    ActiveModelTrait, DbErr, DeleteResult, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
+    Select, Set,
 };
 
 pub struct PostRepository;
 
 impl PostRepository {
-    pub async fn list(page: u64, per_page: u64, post_id: u64) -> Result<Items<Model>, DbErr> {
-        let state = app_state();
-        let q = Posts::find()
-            .filter(Column::Id.gt(post_id))
-            .order_by_desc(Column::Id);
-        paginate::<posts::Entity>(q, &state._db, page, per_page).await
+    pub async fn list(
+        page: u64,
+        per_page: u64,
+        post_id: Option<i64>,
+    ) -> Result<Items<Model>, DbErr> {
+        let query = Self::build_list_query(post_id);
+        Self::paginate_query(query, page, per_page).await
     }
 
     pub async fn list_by_site(
         site_id: i64,
         page: u64,
         per_page: u64,
-        post_id: u64,
+        post_id: Option<i64>,
     ) -> Result<Items<Model>, DbErr> {
-        let state = app_state();
-        let q = Posts::find()
-            .filter(Column::SiteId.eq(site_id))
-            .filter(Column::Id.gt(post_id))
-            .order_by_desc(Column::Id);
-        paginate::<posts::Entity>(q, &state._db, page, per_page).await
+        let query = Self::build_list_query(post_id).filter(Column::SiteId.eq(site_id));
+        Self::paginate_query(query, page, per_page).await
     }
 
     pub async fn list_by_user(
         user_id: i64,
         page: u64,
         per_page: u64,
-        post_id: u64,
+        post_id: Option<i64>,
     ) -> Result<Items<Model>, DbErr> {
-        let state = app_state();
-        let q = Posts::find()
-            .filter(Column::UserId.eq(user_id))
-            .filter(Column::Id.gt(post_id))
-            .order_by_desc(Column::Id);
-        paginate::<posts::Entity>(q, &state._db, page, per_page).await
+        let query = Self::build_list_query(post_id).filter(Column::UserId.eq(user_id));
+        Self::paginate_query(query, page, per_page).await
     }
 
     pub async fn list_by_api_key(
         api_key_id: i64,
         page: u64,
         per_page: u64,
-        post_id: u64,
+        post_id: Option<i64>,
     ) -> Result<Items<Model>, DbErr> {
-        let state = app_state();
-        let q = Posts::find()
-            .filter(Column::ApiKeyId.eq(api_key_id))
-            .filter(Column::Id.gt(post_id))
-            .order_by_desc(Column::Id);
-        paginate::<posts::Entity>(q, &state._db, page, per_page).await
+        let query = Self::build_list_query(post_id).filter(Column::ApiKeyId.eq(api_key_id));
+        Self::paginate_query(query, page, per_page).await
     }
 
     pub async fn pending_list() -> Result<Vec<(Model, site::Model)>, DbErr> {
@@ -224,5 +214,24 @@ impl PostRepository {
         } else {
             PostStatus::FAILED
         }
+    }
+
+    fn build_list_query(post_id: Option<i64>) -> Select<posts::Entity> {
+        let mut query = Posts::find().order_by_desc(Column::Id);
+
+        if let Some(min_id) = post_id {
+            query = query.filter(Column::Id.gt(min_id));
+        }
+
+        query
+    }
+
+    async fn paginate_query(
+        query: Select<posts::Entity>,
+        page: u64,
+        per_page: u64,
+    ) -> Result<Items<Model>, DbErr> {
+        let state = app_state();
+        paginate::<posts::Entity>(query, &state._db, page, per_page).await
     }
 }

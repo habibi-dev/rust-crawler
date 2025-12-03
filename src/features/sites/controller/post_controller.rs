@@ -110,10 +110,9 @@ impl PostController {
         }
     }
 
-    fn req_params(p: PostListParams) -> (u64, u64, u64) {
+    fn req_params(p: PostListParams) -> (u64, u64, Option<i64>) {
         let page: u64 = p.pagination.page();
         let per_page: u64 = p.pagination.per_page();
-        let post_id: u64 = p.post_id.unwrap_or(0);
-        (page, per_page, post_id)
+        (page, per_page, p.post_id)
     }
 }

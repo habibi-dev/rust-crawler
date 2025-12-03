@@ -1,3 +1,5 @@
+use crate::core::config::Config;
+use crate::core::state::APP_STATE;
 use crate::features::crawler::Browser;
 use crate::features::sites::model::posts::Model;
 use crate::features::sites::model::{posts, site};
@@ -10,8 +12,36 @@ use futures::FutureExt;
 use tokio::task::JoinSet;
 use tokio::time::{Duration, timeout};
 
-const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(15);
-const MAX_CONCURRENT_JOBS: usize = 15;
+const DEFAULT_POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(45);
+const DEFAULT_BROWSER_START_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_MAX_CONCURRENT_JOBS: usize = 20;
+
+#[derive(Clone)]
+struct PostProcessingConfig {
+    concurrency_limit: usize,
+    post_timeout: Duration,
+    browser_start_timeout: Duration,
+}
+
+impl PostProcessingConfig {
+    fn from_config(config: &Config) -> Self {
+        // Using Config keeps environment parsing centralized and consistent.
+        Self {
+            concurrency_limit: config.post_concurrency,
+            post_timeout: Duration::from_secs(config.post_timeout_seconds),
+            browser_start_timeout: Duration::from_secs(config.browser_start_timeout_seconds),
+        }
+    }
+
+    fn fallback() -> Self {
+        // Fallback guarantees the crawler still runs even if the app state is unavailable.
+        Self {
+            concurrency_limit: DEFAULT_MAX_CONCURRENT_JOBS,
+            post_timeout: DEFAULT_POST_PROCESS_TIMEOUT,
+            browser_start_timeout: DEFAULT_BROWSER_START_TIMEOUT,
+        }
+    }
+}
 
 #[derive(Clone)]
 struct PostContentJob {
@@ -26,16 +56,12 @@ enum JobResult {
 }
 
 struct PostContentOrchestrator {
-    concurrency_limit: usize,
-    timeout: Duration,
+    config: PostProcessingConfig,
 }
 
 impl PostContentOrchestrator {
-    fn new(concurrency_limit: usize, timeout: Duration) -> Self {
-        Self {
-            concurrency_limit,
-            timeout,
-        }
+    fn new(config: PostProcessingConfig) -> Self {
+        Self { config }
     }
 
     async fn run(&self, jobs: Vec<PostContentJob>) {
@@ -46,7 +72,7 @@ impl PostContentOrchestrator {
         let mut join_set: JoinSet<JobResult> = JoinSet::new();
         let mut queue = jobs.into_iter();
 
-        for _ in 0..self.concurrency_limit {
+        for _ in 0..self.config.concurrency_limit {
             if let Some(job) = queue.next() {
                 self.spawn_job(&mut join_set, job);
             }
@@ -71,12 +97,18 @@ impl PostContentOrchestrator {
     }
 
     fn spawn_job(&self, join_set: &mut JoinSet<JobResult>, job: PostContentJob) {
-        let timeout_duration = self.timeout;
+        let timeout_duration = self.config.post_timeout;
+        let browser_timeout = self.config.browser_start_timeout;
 
         join_set.spawn(async move {
             let post_id = job.post.id;
             let task = async move {
-                match timeout(timeout_duration, process_post(job.post, job.site)).await {
+                match timeout(
+                    timeout_duration,
+                    process_post(job.post, job.site, browser_timeout),
+                )
+                .await
+                {
                     Ok(()) => JobResult::Completed(()),
                     Err(_) => JobResult::TimedOut(post_id),
                 }
@@ -91,6 +123,8 @@ impl PostContentOrchestrator {
 }
 
 pub async fn get_post_content() {
+    let config = load_post_processing_config();
+
     let posts = match PostRepository::pending_list().await {
         Ok(list) => list,
         Err(e) => {
@@ -104,12 +138,18 @@ pub async fn get_post_content() {
         .map(|(post, site)| PostContentJob { post, site })
         .collect();
 
-    PostContentOrchestrator::new(MAX_CONCURRENT_JOBS, POST_PROCESS_TIMEOUT)
-        .run(jobs)
-        .await;
+    PostContentOrchestrator::new(config).run(jobs).await;
 }
 
-async fn process_post(post: Model, site: site::Model) {
+fn load_post_processing_config() -> PostProcessingConfig {
+    // Reading from APP_STATE ensures we reuse the already-loaded configuration.
+    APP_STATE
+        .get()
+        .map(|state| PostProcessingConfig::from_config(&state.config))
+        .unwrap_or_else(PostProcessingConfig::fallback)
+}
+
+async fn process_post(post: Model, site: site::Model, browser_timeout: Duration) {
     let url = post.url.as_deref().unwrap_or("");
     let path_title = site.path_title.as_deref().unwrap_or("");
     let path_image = site.path_image.as_deref().unwrap_or("");
@@ -117,15 +157,19 @@ async fn process_post(post: Model, site: site::Model) {
     let path_content = site.path_content.as_deref().unwrap_or("");
 
     let (title, image, video, content) = {
-        let browser = match Browser::new(url, None, None).await {
-            Ok(b) => b,
-            Err(e) => {
-                // use error before any await so it does not cross .await
+        let browser = match timeout(browser_timeout, Browser::new(url, None, None)).await {
+            Ok(Ok(b)) => b,
+            Ok(Err(e)) => {
                 eprintln!("Browser failed to start for post {}: {}", post.id, e);
-                // e is dropped here
-
-                // now you can safely await, error type is not in the future anymore
                 mark_post_failed(post.id, "browser initialization failed").await;
+                return;
+            }
+            Err(_) => {
+                eprintln!(
+                    "Browser startup timeout for post {} after {:?}",
+                    post.id, browser_timeout
+                );
+                mark_post_failed(post.id, "browser initialization timed out").await;
                 return;
             }
         };

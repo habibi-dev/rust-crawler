@@ -5,5 +5,5 @@ use serde::Deserialize;
 pub struct PostListParams {
     #[serde(flatten)]
     pub pagination: PaginationParams,
-    pub post_id: Option<u64>,
+    pub post_id: Option<i64>,
 }

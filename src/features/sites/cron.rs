@@ -14,8 +14,8 @@ impl SiteCron {
             name: "fetch_new_posts",
             interval: jon_time,
             tasks: vec![
-                boxed(|| async { check_new_post().await }),
                 boxed(|| async { get_post_content().await }),
+                boxed(|| async { check_new_post().await }),
             ],
         };
         CronManager::new(vec![job])

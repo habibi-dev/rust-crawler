@@ -101,13 +101,12 @@ impl LoggingGuard {
             }
 
             let metadata = entry.metadata().context("Failed to read log metadata")?;
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(elapsed) = now.duration_since(modified) {
-                    if elapsed > retention {
-                        fs::remove_file(&path)
-                            .with_context(|| format!("Failed to remove old log {:?}", path))?;
-                    }
-                }
+            if let Ok(modified) = metadata.modified()
+                && let Ok(elapsed) = now.duration_since(modified)
+                && elapsed > retention
+            {
+                fs::remove_file(&path)
+                    .with_context(|| format!("Failed to remove old log {:?}", path))?;
             }
         }
 

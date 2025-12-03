@@ -3,11 +3,9 @@ use crate::features::sites::model::site::Model;
 use crate::features::sites::repository::post_repository::PostRepository;
 use crate::features::sites::repository::site_repository::SiteRepository;
 use crate::features::sites::utility::normalize_link::normalize_link;
-use crate::features::sites::validation::post_form::PostFormCreate;
-use std::sync::Arc;
-use tokio::sync::Semaphore;
-use tokio::time::{Duration, timeout};
 use crate::features::sites::utility::site_error_tracker::{register_site_error, reset_site_error};
+use crate::features::sites::validation::post_form::PostFormCreate;
+use tokio::time::{Duration, sleep, timeout};
 
 pub async fn check_new_post() {
     let sites = match SiteRepository::all().await {
@@ -18,28 +16,24 @@ pub async fn check_new_post() {
         }
     };
 
-    // limit concurrency to 5 sites at a time
-    let sem = Arc::new(Semaphore::new(5));
+    let mut is_first_site = true;
 
     for site in sites {
-        let sem = sem.clone();
-        let permit = match sem.acquire_owned().await {
-            Ok(p) => p,
-            Err(_) => break,
-        };
+        if !is_first_site {
+            // Delay between site visits to avoid aggressive crawling behavior
+            sleep(Duration::from_secs(3)).await;
+        }
 
-        tokio::spawn(async move {
-            let _permit = permit;
+        is_first_site = false;
 
-            let timeout_result =
-                tokio::time::timeout(Duration::from_secs(60), process_site(site)).await;
+        let timeout_result =
+            tokio::time::timeout(Duration::from_secs(60), process_site(site)).await;
 
-            match timeout_result {
-                Ok(Ok(())) => {}
-                Ok(Err(e)) => eprintln!("process_site failed: {e}"),
-                Err(_) => eprintln!("process_site timeout"),
-            }
-        });
+        match timeout_result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => eprintln!("process_site failed: {e}"),
+            Err(_) => eprintln!("process_site timeout"),
+        }
     }
 }
 
@@ -86,7 +80,6 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
     }
 
     reset_site_error(site.id).await;
-
 
     if let Some(remove_str) = &site.path_remove {
         let selectors: Vec<String> = remove_str

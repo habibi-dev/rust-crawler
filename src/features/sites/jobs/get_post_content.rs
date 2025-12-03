@@ -2,13 +2,13 @@ use crate::features::crawler::Browser;
 use crate::features::sites::model::posts::Model;
 use crate::features::sites::model::{posts, site};
 use crate::features::sites::repository::post_repository::PostRepository;
+use crate::features::sites::repository::site_repository::SiteRepository;
 use crate::features::sites::utility::normalize_link::normalize_link;
+use crate::features::sites::utility::site_error_tracker::register_site_error;
 use crate::features::sites::validation::post_form::PostForm;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::time::{Duration, timeout};
-use crate::features::sites::repository::site_repository::SiteRepository;
-use crate::features::sites::utility::site_error_tracker::register_site_error;
 
 const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 

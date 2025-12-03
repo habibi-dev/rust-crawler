@@ -1,17 +1,20 @@
 use crate::core::app_error::{handle_normalize_error, handle_tower_error};
+use crate::core::logger::targets;
 use crate::core::response::json_error;
 use crate::core::state::AppState;
 use axum::error_handling::HandleErrorLayer;
-use axum::extract::Path;
+use axum::extract::{Path, Request};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Router as AxumRouter, body::Body, middleware};
 use rust_embed::RustEmbed;
 use std::time::Duration;
+use std::time::Instant;
 use tower::ServiceBuilder;
 use tower::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
+use tracing::info;
 
 #[derive(RustEmbed)]
 #[folder = "src/assets/"]
@@ -45,6 +48,28 @@ impl Router {
                     .into_inner(),
             )
             .route_layer(middleware::from_fn(handle_normalize_error))
+            .route_layer(middleware::from_fn(Self::log_requests))
+    }
+
+    async fn log_requests(req: Request<Body>, next: middleware::Next) -> Response {
+        let method = req.method().to_string();
+        let path = req.uri().path().to_string();
+        let start = Instant::now();
+
+        let response = next.run(req).await;
+        let status = response.status().as_u16();
+        let elapsed = start.elapsed().as_millis();
+
+        info!(
+            target: targets::REQUEST,
+            method,
+            path,
+            status,
+            latency_ms = elapsed,
+            "HTTP request completed"
+        );
+
+        response
     }
 
     pub async fn assets(Path(path): Path<String>) -> impl IntoResponse {

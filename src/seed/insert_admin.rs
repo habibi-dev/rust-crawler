@@ -3,11 +3,12 @@ use crate::features::users::utility::hash_key::hash_key;
 use crate::features::users::utility::key_generator::key_generator;
 use sea_orm::PaginatorTrait;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
+use tracing::info;
 
 pub async fn run(db: &DatabaseConnection) -> anyhow::Result<()> {
     let count = user::Entity::find().count(db).await?;
     if count > 0 {
-        println!("ℹ️  Users already exist, skipping seeder.");
+        info!(target: "system", "Users already exist, skipping admin seeder");
         return Ok(());
     }
 
@@ -35,7 +36,7 @@ pub async fn run(db: &DatabaseConnection) -> anyhow::Result<()> {
 
     api_key.insert(db).await?;
 
-    println!("✅ Admin user seeded (name: {name})");
-    println!("✅ Api key: {}", raw_key);
+    info!(target: "system", "Admin user seeded (name: {name})");
+    info!(target: "system", "Api key generated: {}", raw_key);
     Ok(())
 }

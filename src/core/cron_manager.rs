@@ -1,8 +1,10 @@
+use crate::core::logger::targets;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
+use tracing::error;
 
 // Type aliases for async job function
 type CronFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -36,14 +38,14 @@ impl CronManager {
                         let name = def.name;
 
                         tokio::spawn(async move {
-                            // Here fut is a normal async job
+                            // Async cron job execution with error visibility
                             if let Err(e) = async {
                                 fut.await;
                                 Ok::<(), anyhow::Error>(())
                             }
                             .await
                             {
-                                eprintln!("[cron:{name}] failed: {e}");
+                                error!(target: targets::SYSTEM, "[cron:{name}] failed: {e}");
                             }
                         });
                     }

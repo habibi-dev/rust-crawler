@@ -1,4 +1,5 @@
 use crate::core::config::Config;
+use crate::core::logger::targets;
 use crate::core::state::APP_STATE;
 use crate::features::crawler::Browser;
 use crate::features::sites::model::posts::Model;
@@ -11,6 +12,7 @@ use crate::features::sites::validation::post_form::PostForm;
 use futures::FutureExt;
 use tokio::task::JoinSet;
 use tokio::time::{Duration, timeout};
+use tracing::{error, warn};
 
 const DEFAULT_POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(45);
 const DEFAULT_BROWSER_START_TIMEOUT: Duration = Duration::from_secs(30);
@@ -91,7 +93,13 @@ impl PostContentOrchestrator {
                 Ok(JobResult::Panicked(post_id)) => {
                     mark_post_failed(post_id, "task panicked").await;
                 }
-                Err(join_error) => eprintln!("Join error while processing posts: {join_error}"),
+                Err(join_error) => {
+                    error!(
+                        target: targets::CRAWLER_POST,
+                        error = %join_error,
+                        "Join error while processing posts"
+                    )
+                }
             }
         }
     }
@@ -128,7 +136,7 @@ pub async fn get_post_content() {
     let posts = match PostRepository::pending_list().await {
         Ok(list) => list,
         Err(e) => {
-            eprintln!("Failed to load sites: {e}");
+            error!(target: targets::CRAWLER_POST, error = %e, "Failed to load sites");
             return;
         }
     };
@@ -160,14 +168,21 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
         let browser = match timeout(browser_timeout, Browser::new(url, None, None)).await {
             Ok(Ok(b)) => b,
             Ok(Err(e)) => {
-                eprintln!("Browser failed to start for post {}: {}", post.id, e);
+                error!(
+                    target: targets::CRAWLER_POST,
+                    post_id = post.id,
+                    error = %e,
+                    "Browser failed to start for post"
+                );
                 mark_post_failed(post.id, "browser initialization failed").await;
                 return;
             }
             Err(_) => {
-                eprintln!(
-                    "Browser startup timeout for post {} after {:?}",
-                    post.id, browser_timeout
+                warn!(
+                    target: targets::CRAWLER_POST,
+                    post_id = post.id,
+                    timeout_ms = browser_timeout.as_millis(),
+                    "Browser startup timeout for post"
                 );
                 mark_post_failed(post.id, "browser initialization timed out").await;
                 return;
@@ -184,7 +199,12 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
             if !selectors.is_empty()
                 && let Err(e) = browser.remove_elements(selectors).await
             {
-                eprintln!("Failed to remove elements for site {}: {}", site.id, e);
+                warn!(
+                    target: targets::CRAWLER_SITE,
+                    site_id = site.id,
+                    error = %e,
+                    "Failed to remove elements"
+                );
             }
         }
 
@@ -233,27 +253,49 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
     .await
     {
         mark_post_failed(post.id, "database update failed").await;
-        eprintln!("Failed to update post id {}: {}", post.id, e);
+        error!(
+            target: targets::CRAWLER_POST,
+            post_id = post.id,
+            error = %e,
+            "Failed to update post"
+        );
     }
 }
 
 async fn mark_post_failed(post_id: i64, reason: &str) {
     // consistent logging and persistence keep job failures observable
-    eprintln!("Post {} failed: {}", post_id, reason);
+    error!(
+        target: targets::CRAWLER_POST,
+        post_id,
+        reason,
+        "Post failed"
+    );
     if let Err(db_err) = PostRepository::update_failed(post_id).await {
-        eprintln!("Failed to mark post {} as failed: {}", post_id, db_err);
+        error!(
+            target: targets::CRAWLER_POST,
+            post_id,
+            error = %db_err,
+            "Failed to mark post as failed"
+        );
     }
 }
 
 async fn block(site: &site::Model) {
     let count = register_site_error(site.id).await;
     if count >= 5 {
-        eprintln!(
-            "Site {} reached error threshold ({}), disabling",
-            site.id, count
+        warn!(
+            target: targets::CRAWLER_SITE,
+            site_id = site.id,
+            error_count = count,
+            "Site reached error threshold, disabling"
         );
         if let Err(e) = SiteRepository::disable(site.id).await {
-            eprintln!("Failed to disable site {}: {}", site.id, e);
+            error!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                error = %e,
+                "Failed to disable site"
+            );
         }
     }
 }

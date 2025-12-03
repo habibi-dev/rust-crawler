@@ -1,3 +1,4 @@
+use crate::core::logger::targets;
 use crate::features::crawler::Browser;
 use crate::features::sites::model::site::Model;
 use crate::features::sites::repository::post_repository::PostRepository;
@@ -6,12 +7,13 @@ use crate::features::sites::utility::normalize_link::normalize_link;
 use crate::features::sites::utility::site_error_tracker::{register_site_error, reset_site_error};
 use crate::features::sites::validation::post_form::PostFormCreate;
 use tokio::time::{Duration, sleep, timeout};
+use tracing::{error, warn};
 
 pub async fn check_new_post() {
     let sites = match SiteRepository::all().await {
         Ok(list) => list,
         Err(e) => {
-            eprintln!("Failed to load sites: {e}");
+            error!(target: targets::CRAWLER_SITE, error = %e, "Failed to load sites");
             return;
         }
     };
@@ -31,8 +33,8 @@ pub async fn check_new_post() {
 
         match timeout_result {
             Ok(Ok(())) => {}
-            Ok(Err(e)) => eprintln!("process_site failed: {e}"),
-            Err(_) => eprintln!("process_site timeout"),
+            Ok(Err(e)) => error!(target: targets::CRAWLER_SITE, error = %e, "process_site failed"),
+            Err(_) => warn!(target: targets::CRAWLER_SITE, "process_site timeout"),
         }
     }
 }
@@ -52,14 +54,23 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
     {
         Ok(Ok(b)) => b,
         Ok(Err(e)) => {
-            eprintln!("Browser failed to start for site {}: {}", site.id, e);
+            error!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                error = %e,
+                "Browser failed to start for site"
+            );
 
             block(&site).await;
 
             return Ok(());
         }
         Err(_) => {
-            eprintln!("Browser startup timeout for site {}", site.id);
+            warn!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                "Browser startup timeout for site"
+            );
             block(&site).await;
             return Ok(());
         }
@@ -69,9 +80,12 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
         .wait_for_selector(path, Duration::from_secs(20))
         .await
     {
-        eprintln!(
-            "wait_for_selector failed for site {} (selector: {}): {}",
-            site.id, path, e
+        error!(
+            target: targets::CRAWLER_SITE,
+            site_id = site.id,
+            selector = %path,
+            error = %e,
+            "wait_for_selector failed for site"
         );
 
         block(&site).await;
@@ -95,10 +109,19 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
             match remove_result {
                 Ok(Ok(())) => {}
                 Ok(Err(e)) => {
-                    eprintln!("Failed to remove elements for site {}: {}", site.id, e);
+                    warn!(
+                        target: targets::CRAWLER_SITE,
+                        site_id = site.id,
+                        error = %e,
+                        "Failed to remove elements"
+                    );
                 }
                 Err(_) => {
-                    eprintln!("remove_elements timeout for site {}", site.id);
+                    warn!(
+                        target: targets::CRAWLER_SITE,
+                        site_id = site.id,
+                        "remove_elements timeout"
+                    );
                     block(&site).await;
                 }
             }
@@ -115,7 +138,11 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
             ));
         }
         Err(_) => {
-            eprintln!("get_attrs timeout for site {}", site.id);
+            warn!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                "get_attrs timeout"
+            );
             block(&site).await;
             return Ok(());
         }
@@ -134,7 +161,12 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
         {
             let msg = e.to_string();
             if !msg.contains("UNIQUE constraint failed") {
-                eprintln!("Failed to create post for site {}: {}", site.id, msg);
+                error!(
+                    target: targets::CRAWLER_SITE,
+                    site_id = site.id,
+                    error = %msg,
+                    "Failed to create post"
+                );
             }
         }
     }
@@ -145,12 +177,19 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
 async fn block(site: &Model) {
     let count = register_site_error(site.id).await;
     if count >= 5 {
-        eprintln!(
-            "Site {} reached error threshold ({}), disabling",
-            site.id, count
+        warn!(
+            target: targets::CRAWLER_SITE,
+            site_id = site.id,
+            error_count = count,
+            "Site reached error threshold, disabling"
         );
         if let Err(e) = SiteRepository::disable(site.id).await {
-            eprintln!("Failed to disable site {}: {}", site.id, e);
+            error!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                error = %e,
+                "Failed to disable site"
+            );
         }
     }
 }

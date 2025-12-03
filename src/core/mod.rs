@@ -3,6 +3,7 @@ pub mod config;
 pub mod cron_manager;
 pub mod dto;
 pub mod http;
+pub mod logger;
 pub mod repository;
 pub mod response;
 pub mod router;

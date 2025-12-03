@@ -7,6 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::time::Duration;
 use std::{env, fs};
+use tracing::{error, info, warn};
 
 #[derive(Clone)]
 pub struct Config {
@@ -33,7 +34,7 @@ impl Config {
         if !Path::new(env_path).exists() {
             match fs::write(env_path, ENV_SAMPLE) {
                 Ok(_) => {
-                    println!(".env file created from sample");
+                    info!(target: "system", "Created .env file from sample");
 
                     #[cfg(unix)]
                     {
@@ -41,17 +42,17 @@ impl Config {
                             let mut perms = meta.permissions();
                             perms.set_mode(0o600);
                             if let Err(e) = fs::set_permissions(env_path, perms) {
-                                eprintln!("Failed to set permissions: {}", e);
+                                warn!(target: "system", "Failed to set permissions: {}", e);
                             }
                         }
                     }
                 }
-                Err(err) => eprintln!("Failed to create .env file: {}", err),
+                Err(err) => error!(target: "system", "Failed to create .env file: {}", err),
             }
         }
 
         if let Err(e) = dotenvy::dotenv() {
-            eprintln!("Error loading .env: {}", e);
+            warn!(target: "system", "Error loading .env: {}", e);
         }
     }
 
@@ -165,7 +166,7 @@ impl Config {
             .ok()
             .and_then(|value| value.parse::<usize>().ok())
             .filter(|value| *value > 0)
-            .unwrap_or(10)
+            .unwrap_or(2)
     }
 
     fn post_processing_timeout_seconds() -> u64 {

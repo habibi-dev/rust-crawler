@@ -6,11 +6,89 @@ use crate::features::sites::repository::site_repository::SiteRepository;
 use crate::features::sites::utility::normalize_link::normalize_link;
 use crate::features::sites::utility::site_error_tracker::register_site_error;
 use crate::features::sites::validation::post_form::PostForm;
-use std::sync::Arc;
-use tokio::sync::Semaphore;
+use futures::FutureExt;
+use tokio::task::JoinSet;
 use tokio::time::{Duration, timeout};
 
-const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
+const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(15);
+const MAX_CONCURRENT_JOBS: usize = 15;
+
+#[derive(Clone)]
+struct PostContentJob {
+    post: Model,
+    site: site::Model,
+}
+
+enum JobResult {
+    Completed(()),
+    TimedOut(i64),
+    Panicked(i64),
+}
+
+struct PostContentOrchestrator {
+    concurrency_limit: usize,
+    timeout: Duration,
+}
+
+impl PostContentOrchestrator {
+    fn new(concurrency_limit: usize, timeout: Duration) -> Self {
+        Self {
+            concurrency_limit,
+            timeout,
+        }
+    }
+
+    async fn run(&self, jobs: Vec<PostContentJob>) {
+        if jobs.is_empty() {
+            return;
+        }
+
+        let mut join_set: JoinSet<JobResult> = JoinSet::new();
+        let mut queue = jobs.into_iter();
+
+        for _ in 0..self.concurrency_limit {
+            if let Some(job) = queue.next() {
+                self.spawn_job(&mut join_set, job);
+            }
+        }
+
+        while let Some(result) = join_set.join_next().await {
+            if let Some(next_job) = queue.next() {
+                self.spawn_job(&mut join_set, next_job);
+            }
+
+            match result {
+                Ok(JobResult::Completed(_)) => {}
+                Ok(JobResult::TimedOut(post_id)) => {
+                    mark_post_failed(post_id, "processing timed out").await;
+                }
+                Ok(JobResult::Panicked(post_id)) => {
+                    mark_post_failed(post_id, "task panicked").await;
+                }
+                Err(join_error) => eprintln!("Join error while processing posts: {join_error}"),
+            }
+        }
+    }
+
+    fn spawn_job(&self, join_set: &mut JoinSet<JobResult>, job: PostContentJob) {
+        let timeout_duration = self.timeout;
+
+        join_set.spawn(async move {
+            let post_id = job.post.id;
+            let task = async move {
+                match timeout(timeout_duration, process_post(job.post, job.site)).await {
+                    Ok(()) => JobResult::Completed(()),
+                    Err(_) => JobResult::TimedOut(post_id),
+                }
+            };
+
+            match std::panic::AssertUnwindSafe(task).catch_unwind().await {
+                Ok(result) => result,
+                Err(_) => JobResult::Panicked(post_id),
+            }
+        });
+    }
+}
 
 pub async fn get_post_content() {
     let posts = match PostRepository::pending_list().await {
@@ -21,30 +99,14 @@ pub async fn get_post_content() {
         }
     };
 
-    // limit concurrency to 5 posts at a time
-    let sem = Arc::new(Semaphore::new(2));
+    let jobs: Vec<PostContentJob> = posts
+        .into_iter()
+        .map(|(post, site)| PostContentJob { post, site })
+        .collect();
 
-    for (post, site) in posts {
-        let sem = sem.clone();
-        let post_id = post.id;
-
-        let permit = match sem.acquire_owned().await {
-            Ok(p) => p,
-            Err(_) => break,
-        };
-
-        tokio::spawn(async move {
-            // keep permit alive for whole site processing
-            let _permit = permit;
-            // timeout ensures stuck pages are cancelled and re-queued
-            if timeout(POST_PROCESS_TIMEOUT, process_post(post, site))
-                .await
-                .is_err()
-            {
-                mark_post_failed(post_id, "processing timed out").await;
-            }
-        });
-    }
+    PostContentOrchestrator::new(MAX_CONCURRENT_JOBS, POST_PROCESS_TIMEOUT)
+        .run(jobs)
+        .await;
 }
 
 async fn process_post(post: Model, site: site::Model) {

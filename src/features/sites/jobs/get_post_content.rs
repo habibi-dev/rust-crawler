@@ -270,19 +270,39 @@ async fn fetch_attribute_with_fallback(
         return String::new();
     }
 
-    let primary_value = browser
-        .get_attr(selector, primary_attr)
-        .await
-        .unwrap_or_default();
+    let primary_value = sanitize_attribute_value(
+        browser
+            .get_attr(selector, primary_attr)
+            .await
+            .unwrap_or_default(),
+    );
 
-    if !primary_value.trim().is_empty() {
-        return primary_value;
+    if let Some(value) = primary_value {
+        return value;
     }
 
-    browser
-        .get_attr(selector, fallback_attr)
-        .await
-        .unwrap_or_default()
+    sanitize_attribute_value(
+        browser
+            .get_attr(selector, fallback_attr)
+            .await
+            .unwrap_or_default(),
+    )
+    .unwrap_or_default()
+}
+
+fn sanitize_attribute_value(raw_value: String) -> Option<String> {
+    // Some browsers return literal "null" or "undefined" strings for missing attributes,
+    // so we normalize them to None to allow proper fallback checks.
+    let trimmed_value = raw_value.trim();
+
+    if trimmed_value.is_empty() {
+        return None;
+    }
+
+    match trimmed_value {
+        "null" | "undefined" => None,
+        _ => Some(trimmed_value.to_string()),
+    }
 }
 
 async fn mark_post_failed(post_id: i64, reason: &str) {

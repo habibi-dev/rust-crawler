@@ -212,13 +212,9 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
             .get_element_text(path_title)
             .await
             .unwrap_or_default();
-        let image = normalize_link(
-            &site.url,
-            &browser
-                .get_attr(path_image, "src")
-                .await
-                .unwrap_or_default(),
-        );
+        let image_attr =
+            fetch_attribute_with_fallback(&browser, path_image, "src", "content").await;
+        let image = normalize_link(&site.url, &image_attr);
         let video = normalize_link(
             &site.url,
             &browser
@@ -260,6 +256,33 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
             "Failed to update post"
         );
     }
+}
+
+async fn fetch_attribute_with_fallback(
+    browser: &Browser,
+    selector: &str,
+    primary_attr: &str,
+    fallback_attr: &str,
+) -> String {
+    // Attempt to read the preferred attribute and gracefully fall back to an alternate one for cases
+    // such as meta tags that expose the URL through "content" instead of "src".
+    if selector.trim().is_empty() {
+        return String::new();
+    }
+
+    let primary_value = browser
+        .get_attr(selector, primary_attr)
+        .await
+        .unwrap_or_default();
+
+    if !primary_value.trim().is_empty() {
+        return primary_value;
+    }
+
+    browser
+        .get_attr(selector, fallback_attr)
+        .await
+        .unwrap_or_default()
 }
 
 async fn mark_post_failed(post_id: i64, reason: &str) {

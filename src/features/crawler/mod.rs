@@ -240,8 +240,49 @@ impl Browser {
         let tab = self.tab.clone();
 
         run_blocking_chrome_task(move || {
-            tab.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })", false)?;
-            std::thread::sleep(wait_after);
+            const SCROLL_STEP_PX: i64 = 400;
+            const STABLE_ROUNDS_REQUIRED: usize = 3;
+            const MAX_STEPS: usize = 200;
+            let mut last_scroll_height = 0.0;
+            let mut stable_rounds = 0;
+
+            for _ in 0..MAX_STEPS {
+                let metrics = tab.evaluate(
+                    "({ scrollY: window.scrollY, innerHeight: window.innerHeight, scrollHeight: document.body.scrollHeight })",
+                    false,
+                )?;
+                let metrics = metrics.value.as_ref().ok_or("Missing scroll metrics")?;
+                let scroll_y = metrics.get("scrollY").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let inner_height = metrics
+                    .get("innerHeight")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let scroll_height = metrics
+                    .get("scrollHeight")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+
+                let at_bottom = scroll_y + inner_height >= scroll_height - 1.0;
+                let height_delta = (scroll_height - last_scroll_height).abs();
+
+                if at_bottom && height_delta < 1.0 {
+                    stable_rounds += 1;
+                    if stable_rounds >= STABLE_ROUNDS_REQUIRED {
+                        break;
+                    }
+                } else {
+                    stable_rounds = 0;
+                }
+
+                last_scroll_height = scroll_height;
+
+                let script = format!(
+                    "window.scrollBy({{ top: {}, behavior: 'smooth' }})",
+                    SCROLL_STEP_PX
+                );
+                tab.evaluate(&script, false)?;
+                std::thread::sleep(wait_after);
+            }
             Ok(())
         })
         .await

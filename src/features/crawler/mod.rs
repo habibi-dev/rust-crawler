@@ -243,10 +243,16 @@ impl Browser {
             const SCROLL_STEP_PX: i64 = 400;
             const STABLE_ROUNDS_REQUIRED: usize = 3;
             const MAX_STEPS: usize = 200;
+            const MAX_SCROLL_DURATION: Duration = Duration::from_secs(20);
             let mut last_scroll_height = 0.0;
             let mut stable_rounds = 0;
+            let start = Instant::now();
 
             for _ in 0..MAX_STEPS {
+                if start.elapsed() >= MAX_SCROLL_DURATION {
+                    break;
+                }
+
                 if let Some(metrics) = evaluate_scroll_metrics(&tab)? {
                     let at_bottom =
                         metrics.scroll_y + metrics.inner_height >= metrics.scroll_height - 1.0;

@@ -190,7 +190,7 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
         };
 
         match timeout(
-            Duration::from_secs(5),
+            Duration::from_secs(30),
             browser.scroll_to_bottom(Duration::from_secs(1)),
         )
         .await

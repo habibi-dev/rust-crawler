@@ -189,6 +189,31 @@ async fn process_post(post: Model, site: site::Model, browser_timeout: Duration)
             }
         };
 
+        match timeout(
+            Duration::from_secs(5),
+            browser.scroll_to_bottom(Duration::from_secs(1)),
+        )
+        .await
+        {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                warn!(
+                    target: targets::CRAWLER_POST,
+                    post_id = post.id,
+                    error = %e,
+                    "scroll_to_bottom failed"
+                );
+            }
+            Err(e) => {
+                warn!(
+                    target: targets::CRAWLER_POST,
+                    post_id = post.id,
+                    error = %e,
+                    "scroll_to_bottom timeout"
+                );
+            }
+        }
+
         if let Some(remove_str) = &site.path_remove {
             let selectors: Vec<String> = remove_str
                 .split(',')

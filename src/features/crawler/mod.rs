@@ -235,6 +235,17 @@ impl Browser {
         })
         .await
     }
+
+    pub async fn scroll_to_bottom(&self, wait_after: Duration) -> Result<(), AnyError> {
+        let tab = self.tab.clone();
+
+        run_blocking_chrome_task(move || {
+            tab.evaluate("window.scrollTo(0, document.body.scrollHeight);", false)?;
+            std::thread::sleep(wait_after);
+            Ok(())
+        })
+        .await
+    }
 }
 
 async fn run_blocking_chrome_task<F, R>(task: F) -> Result<R, AnyError>

@@ -95,6 +95,31 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
 
     reset_site_error(site.id).await;
 
+    match timeout(
+        Duration::from_secs(5),
+        browser.scroll_to_bottom(Duration::from_secs(1)),
+    )
+    .await
+    {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            warn!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                error = %e,
+                "scroll_to_bottom failed"
+            );
+        }
+        Err(err) => {
+            warn!(
+                target: targets::CRAWLER_SITE,
+                site_id = site.id,
+                error = %err,
+                "scroll_to_bottom timeout"
+            );
+        }
+    }
+
     if let Some(remove_str) = &site.path_remove {
         let selectors: Vec<String> = remove_str
             .split(',')

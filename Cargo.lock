@@ -2213,7 +2213,7 @@ dependencies = [
 
 [[package]]
 name = "rust-crawler"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "askama",

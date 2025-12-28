@@ -240,7 +240,7 @@ impl Browser {
         let tab = self.tab.clone();
 
         run_blocking_chrome_task(move || {
-            tab.evaluate("window.scrollTo(0, document.body.scrollHeight);", false)?;
+            tab.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })", false)?;
             std::thread::sleep(wait_after);
             Ok(())
         })

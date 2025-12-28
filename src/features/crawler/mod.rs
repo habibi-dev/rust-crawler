@@ -247,34 +247,22 @@ impl Browser {
             let mut stable_rounds = 0;
 
             for _ in 0..MAX_STEPS {
-                let metrics = tab.evaluate(
-                    "({ scrollY: window.scrollY, innerHeight: window.innerHeight, scrollHeight: document.body.scrollHeight })",
-                    false,
-                )?;
-                let metrics = metrics.value.as_ref().ok_or("Missing scroll metrics")?;
-                let scroll_y = metrics.get("scrollY").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                let inner_height = metrics
-                    .get("innerHeight")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
-                let scroll_height = metrics
-                    .get("scrollHeight")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
+                if let Some(metrics) = evaluate_scroll_metrics(&tab)? {
+                    let at_bottom =
+                        metrics.scroll_y + metrics.inner_height >= metrics.scroll_height - 1.0;
+                    let height_delta = (metrics.scroll_height - last_scroll_height).abs();
 
-                let at_bottom = scroll_y + inner_height >= scroll_height - 1.0;
-                let height_delta = (scroll_height - last_scroll_height).abs();
-
-                if at_bottom && height_delta < 1.0 {
-                    stable_rounds += 1;
-                    if stable_rounds >= STABLE_ROUNDS_REQUIRED {
-                        break;
+                    if at_bottom && height_delta < 1.0 {
+                        stable_rounds += 1;
+                        if stable_rounds >= STABLE_ROUNDS_REQUIRED {
+                            break;
+                        }
+                    } else {
+                        stable_rounds = 0;
                     }
-                } else {
-                    stable_rounds = 0;
-                }
 
-                last_scroll_height = scroll_height;
+                    last_scroll_height = metrics.scroll_height;
+                }
 
                 let script = format!(
                     "window.scrollBy({{ top: {}, behavior: 'smooth' }})",
@@ -287,6 +275,35 @@ impl Browser {
         })
         .await
     }
+}
+
+struct ScrollMetrics {
+    scroll_y: f64,
+    inner_height: f64,
+    scroll_height: f64,
+}
+
+fn evaluate_scroll_metrics(tab: &Tab) -> Result<Option<ScrollMetrics>, AnyError> {
+    let metrics = tab.evaluate(
+        "({ scrollY: window.scrollY, innerHeight: window.innerHeight, scrollHeight: document.body.scrollHeight })",
+        false,
+    )?;
+    let metrics = match metrics.value.as_ref() {
+        Some(metrics) => metrics,
+        None => return Ok(None),
+    };
+
+    Ok(Some(ScrollMetrics {
+        scroll_y: metrics.get("scrollY").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        inner_height: metrics
+            .get("innerHeight")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+        scroll_height: metrics
+            .get("scrollHeight")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0),
+    }))
 }
 
 async fn run_blocking_chrome_task<F, R>(task: F) -> Result<R, AnyError>

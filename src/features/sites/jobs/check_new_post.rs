@@ -96,7 +96,7 @@ async fn process_site(site: Model) -> anyhow::Result<()> {
     reset_site_error(site.id).await;
 
     match timeout(
-        Duration::from_secs(5),
+        Duration::from_secs(10),
         browser.scroll_to_bottom(Duration::from_secs(1)),
     )
     .await

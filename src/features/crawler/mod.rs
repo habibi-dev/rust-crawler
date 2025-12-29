@@ -240,7 +240,25 @@ impl Browser {
         let tab = self.tab.clone();
 
         run_blocking_chrome_task(move || {
-            tab.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })", false)?;
+            tab.evaluate(
+                "(function slowLinearScroll(durationMs = 5000) {
+  const startY = window.scrollY;
+  const targetY = document.body.scrollHeight - window.innerHeight;
+  const distance = targetY - startY;
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - startTime) / durationMs, 1);
+    const linear = t; // constant speed
+    window.scrollTo(0, startY + distance * linear);
+
+    if (t < 1) requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+})();",
+                false,
+            )?;
             std::thread::sleep(wait_after);
             Ok(())
         })
